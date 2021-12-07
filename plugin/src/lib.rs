@@ -4,3 +4,4 @@
 #![allow(non_snake_case)] // Windows naming conventions
 
 mod background;
+mod plugin;

@@ -8,7 +8,7 @@ use windows::{
 
 /// The VPN plugin object which provides the hooks that the UWP VPN platform will call into.
 #[implement(Windows::Networking::Vpn::IVpnPlugIn)]
-struct VpnPlugin;
+pub struct VpnPlugin;
 
 impl VpnPlugin {
     /// Called by the platform so that we may connect and setup the VPN tunnel.

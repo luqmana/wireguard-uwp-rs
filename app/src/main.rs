@@ -1,4 +1,4 @@
-//! This crate contains the foreground portion of our VPN plugin app.
+//! This crate contains the foreground portion of our UWP VPN plugin app.
 //!
 //! We use XAML programmatically to generate the UI.
 

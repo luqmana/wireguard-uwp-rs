@@ -4,7 +4,9 @@ use windows::{
     self as Windows,
     core::*,
     ApplicationModel::Background::IBackgroundTaskInstance,
-    Win32::Foundation::{E_INVALIDARG, E_NOINTERFACE, S_OK},
+    ApplicationModel::Core::CoreApplication,
+    Networking::Vpn::{IVpnPlugIn, VpnChannel},
+    Win32::Foundation::{E_INVALIDARG, E_NOINTERFACE, E_UNEXPECTED, S_OK},
     Win32::System::WinRT::IActivationFactory,
 };
 
@@ -14,8 +16,23 @@ use windows::{
 pub struct VpnBackgroundTask;
 
 impl VpnBackgroundTask {
-    fn Run(&self, _task: &Option<IBackgroundTaskInstance>) -> Result<()> {
-        todo!()
+    fn Run(&self, task: &Option<IBackgroundTaskInstance>) -> Result<()> {
+        let task = task.as_ref().ok_or(Error::from(E_UNEXPECTED))?;
+
+        // Grab existing plugin instance from in-memory app properties or create a new one
+        let app_props = CoreApplication::Properties()?;
+        let plugin = if app_props.HasKey("plugin")? {
+            app_props.Lookup("props")?.cast()?
+        } else {
+            let plugin: IVpnPlugIn = super::plugin::VpnPlugin.into();
+            app_props.Insert("plugin", plugin.clone())?;
+            plugin
+        };
+
+        // Call into VPN platform with the plugin object
+        VpnChannel::ProcessEventAsync(plugin, task.TriggerDetails()?)?;
+
+        Ok(())
     }
 }
 

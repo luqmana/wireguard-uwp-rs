@@ -41,7 +41,7 @@ impl App {
             let color = SolidColorBrush::new()?;
             color.SetColor(Windows::UI::Color { A: 0xFF, R: 0xFC, G: 51, B: 0x85 })?;
             run.SetForeground(color)?;
-            run.SetText("UWP + WireGuard + Rust")?;
+            run.SetText("WireGuard + UWP + Rust")?;
             run
         })?;
         inline_content.Append(LineBreak::new()?)?;

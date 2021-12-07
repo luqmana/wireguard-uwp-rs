@@ -1,0 +1,21 @@
+[package]
+name = "wireguard-uwp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dependencies.windows]
+version = "0.28"
+features = [
+    "alloc",
+    "build",
+    "std",
+    "ApplicationModel_Activation",
+    "Foundation_Collections",
+    "UI_Xaml_Controls",
+    "UI_Xaml_Documents",
+    "UI_Xaml_Media",
+    "UI_Xaml",
+    "Win32_System_Com",
+]

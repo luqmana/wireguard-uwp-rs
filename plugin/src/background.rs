@@ -40,7 +40,7 @@ impl VpnBackgroundTaskFactory {
 /// to our `VpnBackgroundTask` object. It can do so because as part of our `AppxManifest.xml`
 /// we list out which Activatable Classes (VpnBackgroundTask) we want registered during App
 /// installation. Furthermore, we specify that the component is hosted in our DLL. From there,
-/// it knows to query us via the `DllGetActivationFactory` function we export to return some
+/// it knows to query us via the `DllGetActivationFactory` function we export to get some
 /// object implementing `IActivationFactory` which knows how to create new instances of the
 /// target WinRT runtime class.
 #[no_mangle]
@@ -52,14 +52,23 @@ pub unsafe extern "system" fn DllGetActivationFactory(
         return E_INVALIDARG;
     }
 
+    *factory = None;
+
     // Return the appropriate factory based on which class was requested
     if activatableClassId == "VpnBackgroundTask" {
         *factory = Some(VpnBackgroundTaskFactory.into());
-    } else {
-        // Otherwise bail for any class we don't support
-        *factory = None;
-        return E_NOINTERFACE;
     }
 
-    S_OK
+    // Since `activatableClassId` is an _In_ parameter, the caller is responsible
+    // for freeing. But, the HSTRING wrapper from the windows crate has a `Drop`
+    // impl which will attempt to free it once it goes out of scope. Thus, we simply
+    // call `forget` to skip the drop call. Ideally windows-rs would also provide an
+    // HStringReference wrapper type without such a drop to avoid this altogether.
+    std::mem::forget(activatableClassId);
+
+    if factory.is_null() {
+        E_NOINTERFACE
+    } else {
+        S_OK
+    }
 }

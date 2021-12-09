@@ -1,5 +1,7 @@
 //! The entrypoint for the background task where our actual VPN plugin runs.
 
+use std::mem::ManuallyDrop;
+
 use windows::{
     self as Windows,
     core::*,
@@ -60,32 +62,28 @@ impl VpnBackgroundTaskFactory {
 /// it knows to query us via the `DllGetActivationFactory` function we export to get some
 /// object implementing `IActivationFactory` which knows how to create new instances of the
 /// target WinRT runtime class.
+///
+/// Since `activatableClassId` is an _In_ parameter, the caller is responsible for freeing it.
+/// But the HSTRING wrapper from the windows crate has a `Drop` impl which will attempt to free
+/// it once it goes out of scope. Unfortunately, that would be a double-free once we've returned
+/// back to the caller who would also attempt to free it. Hence, we transparently wrap the HSTRING
+/// with ManuallyDrop to skip any free'ing on the Rust side.
 #[no_mangle]
 pub unsafe extern "system" fn DllGetActivationFactory(
-    activatableClassId: HSTRING,
+    activatableClassId: ManuallyDrop<HSTRING>,
     factory: *mut Option<IActivationFactory>,
 ) -> HRESULT {
     if activatableClassId.is_empty() || factory.is_null() {
         return E_INVALIDARG;
     }
 
-    *factory = None;
-
     // Return the appropriate factory based on which class was requested
-    if activatableClassId == "VpnBackgroundTask" {
+    if *activatableClassId == "VpnBackgroundTask" {
         *factory = Some(VpnBackgroundTaskFactory.into());
-    }
-
-    // Since `activatableClassId` is an _In_ parameter, the caller is responsible
-    // for freeing. But, the HSTRING wrapper from the windows crate has a `Drop`
-    // impl which will attempt to free it once it goes out of scope. Thus, we simply
-    // call `forget` to skip the drop call. Ideally windows-rs would also provide an
-    // HStringReference wrapper type without such a drop to avoid this altogether.
-    std::mem::forget(activatableClassId);
-
-    if factory.is_null() {
-        E_NOINTERFACE
     } else {
-        S_OK
+        *factory = None;
+        return E_NOINTERFACE;
     }
+
+    S_OK
 }

@@ -4,3 +4,20 @@ members = [
     "app",
     "plugin",
 ]
+
+[profile.release]
+# Enable link-time optimization, eliminates more code and inlines across crate boundaries.
+lto = true
+
+# codegen-units of 1 gives best optimization, but disables parallel building.
+codegen-units = 1
+
+# Includes debug information in release builds. Necessary for profiling. Does not
+# slow down the executable.
+debug = true
+
+# The default optimization level is 3 for release mode builds.
+# 0 means disable optimization and is the default for debug mode buids.
+# (Setting opt-level=1 for debug builds is a good way of speeding them up a bit.)
+# "s" means optimize for size, "z" reduces size even more.
+opt-level = 3

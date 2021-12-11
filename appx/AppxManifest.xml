@@ -20,13 +20,13 @@
     <Resource Language="en-us" />
   </Resources>
   <Applications>
-    <Application Id="App" Executable="wireguard-uwp.exe" EntryPoint="App">
+    <Application Id="App" Executable="wireguard-uwp.exe" EntryPoint="WireGuard-UWP.App">
       <uap:VisualElements DisplayName="WireGuard UWP VPN" Description="WireGuard UWP VPN App"
         Square150x150Logo="Square150x150Logo.png" Square44x44Logo="Square44x44Logo.png" BackgroundColor="transparent">
         <uap:SplashScreen Image="SplashScreen.png" />
       </uap:VisualElements>
     </Application>
-    <Application Id="Plugin" Executable="wireguard-uwp.exe" EntryPoint="App">
+    <Application Id="Plugin" Executable="wireguard-uwp.exe" EntryPoint="WireGuard-UWP.App">
         <!-- We dont want the Plugin "app" to show up in the start menu, so set AppListEntry=none -->
       <uap:VisualElements DisplayName="WireGuard UWP VPN Plugin" Description="WireGuard UWP VPN Plugin"
         Square150x150Logo="Square150x150Logo.png" Square44x44Logo="Square44x44Logo.png" BackgroundColor="transparent"
@@ -34,7 +34,7 @@
         <uap:SplashScreen Image="SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <Extension Category="windows.backgroundTasks" Executable="wireguard-uwp.exe" EntryPoint="VpnBackgroundTask">
+        <Extension Category="windows.backgroundTasks" Executable="wireguard-uwp.exe" EntryPoint="WireGuard-UWP.VpnBackgroundTask">
           <BackgroundTasks>
             <uap:Task Type="vpnClient" />
           </BackgroundTasks>
@@ -51,7 +51,7 @@
     <Extension Category="windows.activatableClass.inProcessServer">
       <InProcessServer>
         <Path>wireguard_uwp_plugin.dll</Path>
-        <ActivatableClass ActivatableClassId="VpnBackgroundTask" ThreadingModel="both" />
+        <ActivatableClass ActivatableClassId="WireGuard-UWP.VpnBackgroundTask" ThreadingModel="both" />
       </InProcessServer>
     </Extension>
   </Extensions>

@@ -5,14 +5,16 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use windows::{
     self as Windows,
     core::*,
-    Win32::Foundation::E_BOUNDS,
-    Foundation::Collections::{IIterable, IIterator, IVectorView},
+    Win32::Foundation::{E_BOUNDS, E_NOTIMPL},
+    Foundation::Collections::{IIterable, IIterator, IVector, IVectorView},
 };
 
-/// A simple wrapper around `Vec` which implements the `IVectorView` and
+
+/// A simple wrapper around `Vec` which implements the `IVector`, `IVectorView` and
 /// `IIterable` interfaces.
 #[implement(
     Windows::Foundation::Collections::IIterable<T>,
+    Windows::Foundation::Collections::IVector<T>,
     Windows::Foundation::Collections::IVectorView<T>
 )]
 pub struct Vector<T: RuntimeType + 'static>(Vec<T::DefaultType>);
@@ -28,6 +30,10 @@ impl<T: RuntimeType + 'static> Vector<T> {
             curr: AtomicU32::new(0),
         }
         .into())
+    }
+
+    fn GetView(&self) -> Result<IVectorView<T>> {
+        Ok(self.cast()?)
     }
 
     fn GetAt(&self, index: u32) -> Result<T> {
@@ -67,10 +73,44 @@ impl<T: RuntimeType + 'static> Vector<T> {
         }
         Ok(count)
     }
+
+    fn SetAt(&self, _index: u32, _value: &T::DefaultType) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn InsertAt(&self, _index: u32, _value: &T::DefaultType) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn RemoveAt(&self, _index: u32) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn Append(&self, _value: &T::DefaultType) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn RemoveAtEnd(&self) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn Clear(&self) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
+
+    fn ReplaceAll(&self, _values: &[T::DefaultType]) -> Result<()> {
+        Err(E_NOTIMPL.into())
+    }
 }
 
 impl<'a, T: RuntimeType + 'static> IntoParam<'a, IVectorView<T>> for Vector<T> {
     fn into_param(self) -> Param<'a, IVectorView<T>> {
+        Param::Owned(self.into())
+    }
+}
+
+impl<'a, T: RuntimeType + 'static> IntoParam<'a, IVector<T>> for Vector<T> {
+    fn into_param(self) -> Param<'a, IVector<T>> {
         Param::Owned(self.into())
     }
 }

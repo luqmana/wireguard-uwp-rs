@@ -9,6 +9,7 @@ use windows::{
     self as Windows,
     core::*,
     ApplicationModel::Activation::LaunchActivatedEventArgs,
+    Foundation::Uri,
     Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED},
     UI::Xaml::{Application, ApplicationInitializationCallback},
 };
@@ -63,6 +64,7 @@ impl App {
                 run.SetText("add one")?;
                 run
             })?;
+            add_link.SetNavigateUri(Uri::CreateUri("ms-settings:network-vpn")?)?;
             add_link
         })?;
         inline_content.Append({

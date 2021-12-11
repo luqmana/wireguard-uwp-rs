@@ -20,21 +20,13 @@ Make sure you have Rust installed. Then, once you've cloned the repo just simply
 $ cargo build --release
 ```
 
-**NOTE:** At the moment, a lot is hardcoded including your private key and the remote endpoint's
-public key. These are pulled into the build from environment variables at compile-time. In
-powershell, before running the build command you can set them as so:
-```powershell
-$Env:PRIVATE_KEY = "..."
-$Env:REMOTE_PUBLIC_KEY = "..."
-```
-
 The project currently only builds on Windows but given the Windows-specific nature, that's not
 considered a limitation.
 
 ## Installing
 
 Once you've successfully built the project, you can install it by running the following commands
-in an admin powershell prompt from the repo root:
+in a powershell prompt from the repo root:
 ```powershell
 copy appx\* target\release
 Add-AppxPackage -Register .\target\release\AppxManifest.xml
@@ -56,11 +48,43 @@ To get your VPN tunnel up and running:
 5. Enter the remote endpoint hostname or IP address under `Server name or address`.
 6. Hit `Save`.
 
+The settings you can tweak from the Windows Settings UI are limited to just the profile name
+and remote endpoint's hostname. To modify the private key, public key, remote port etc we must
+set those values manually. From a powershell prompt:
+
+```powershell
+$vpnConfig = @'
+<WireGuard>
+    <Interface>
+        <PrivateKey>...</PrivateKey>
+        <Address>10.0.0.2/32</Address>
+    </Interface>
+    <Peer>
+        <PublicKey>...</PublicKey>
+        <Port>51000</Port>
+        <AllowedIPs>10.0.0.0/24</AllowedIPs>
+        <AllowedIPs>10.10.0.0/24</AllowedIPs>
+        <AllowedIPs>10.20.0.0/24</AllowedIPs>
+        <PersistentKeepalive>25</PersistentKeepalive>
+    </Peer>
+</WireGuard>
+'@
+
+Set-VpnConnection -Name ProfileNameHere -CustomConfiguration $vpnConfig
+```
+
+The only required values are `PrivateKey`, `Address`, `PublicKey`, & `Port`. The rest are optional.
+You may repeat `Address` multiple times to assign multiple IPv4 & IPv6 addresses to the virtual
+interface. Similarly, you may specify `AllowedIPs` multiple times to define the routes that
+should go over the virtual interface.
+
 You should now be able to select the new profile and hit `Connect`.
 
-**Note:** Some more hardcoded values include the remote endpoint's port to `51000`.
-Similarly, the local VPN interface will be assigned a hardcoded IPv4 address of `10.0.0.2`
-and plumb just a single route: `10.0.0.0/24`.
+**NOTE:** Ideally, you could just specify `Port` colon separated with the hostname but the
+corresponding API for retrieving that value is statically typed as a HostName.
+
+**NOTE:** The main foreground app is planned to offer a simple UI for setting and modifying these
+values.
 
 This has only been tested on Windows 10 21H1 (19043.1348) but should work on any updated
 Windows 10 or 11 release. It'll probably work on older versions but no guarantees.

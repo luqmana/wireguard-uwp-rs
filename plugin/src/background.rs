@@ -27,7 +27,7 @@ impl VpnBackgroundTask {
         let plugin = if app_props.HasKey("plugin")? {
             app_props.Lookup("plugin")?.cast()?
         } else {
-            let plugin: IVpnPlugIn = super::plugin::VpnPlugin.into();
+            let plugin: IVpnPlugIn = super::plugin::VpnPlugin::new().into();
             app_props.Insert("plugin", plugin.clone())?;
             plugin
         };

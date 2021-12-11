@@ -5,10 +5,11 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use windows::{
     self as Windows,
     core::*,
-    Win32::Foundation::{E_BOUNDS, E_NOTIMPL},
     Foundation::Collections::{IIterable, IIterator, IVector, IVectorView},
+    Networking::Vpn::VpnPacketBuffer,
+    Win32::Foundation::{E_BOUNDS, E_NOTIMPL},
+    Win32::System::WinRT::IBufferByteAccess,
 };
-
 
 /// A simple wrapper around `Vec` which implements the `IVector`, `IVectorView` and
 /// `IIterable` interfaces.
@@ -147,5 +148,44 @@ impl<T: RuntimeType + 'static> VectorIterator<T> {
         // SAFETY: We know this must be our `Vector` type
         let vec = unsafe { Vector::to_impl(&self.it) };
         vec.GetMany(0, items)
+    }
+}
+
+pub trait IBufferExt {
+    /// Get a slice to an `IBuffer`'s underlying buffer.
+    ///
+    /// NOTE: This returns a slice with the length set to the IBuffer's Length and not Capacity.
+    fn get_buf(&self) -> Result<&[u8]>;
+
+    /// Get a mutable slice to an `IBuffer`'s underlying buffer.
+    ///
+    /// NOTE: This returns a slice with the length set to the IBuffer's Capacity and not Length.
+    ///
+    /// TODO: Is this safe?
+    ///       For `VpnPacketBuffer` at least, the buffer should be initialized & zeroed.
+    fn get_buf_mut(&mut self) -> Result<&mut [u8]>;
+}
+
+impl IBufferExt for VpnPacketBuffer {
+    fn get_buf(&self) -> Result<&[u8]> {
+        let buffer = self.Buffer()?;
+        let len = buffer.Length()?;
+        let rawBuffer = buffer.cast::<IBufferByteAccess>()?;
+        Ok(unsafe {
+            // SAFETY: Any type that implements `IBuffer` must also implement `IBufferByteAccess`
+            // to return the buffer as an array of bytes.
+            std::slice::from_raw_parts(rawBuffer.Buffer()?, len as usize)
+        })
+    }
+
+    fn get_buf_mut(&mut self) -> Result<&mut [u8]> {
+        let buffer = self.Buffer()?;
+        let cap = buffer.Capacity()?;
+        let rawBuffer = buffer.cast::<IBufferByteAccess>()?;
+        Ok(unsafe {
+            // SAFETY: Any type that implements `IBuffer` must also implement `IBufferByteAccess`
+            // to return the buffer as an array of bytes.
+            std::slice::from_raw_parts_mut(rawBuffer.Buffer()?, cap as usize)
+        })
     }
 }

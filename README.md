@@ -65,5 +65,22 @@ and plumb just a single route: `10.0.0.0/24`.
 This has only been tested on Windows 10 21H1 (19043.1348) but should work on any updated
 Windows 10 or 11 release. It'll probably work on older versions but no guarantees.
 
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
+
 ---
 <sub><sub>"WireGuard" and the "WireGuard" logo are registered trademarks of Jason A. Donenfeld.</sub></sub>

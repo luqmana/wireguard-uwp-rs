@@ -20,11 +20,12 @@ pub struct VpnBackgroundTask;
 impl VpnBackgroundTask {
     fn Run(&self, task: &Option<IBackgroundTaskInstance>) -> Result<()> {
         let task = task.as_ref().ok_or(Error::from(E_UNEXPECTED))?;
+        let deferral = task.GetDeferral()?;
 
         // Grab existing plugin instance from in-memory app properties or create a new one
         let app_props = CoreApplication::Properties()?;
         let plugin = if app_props.HasKey("plugin")? {
-            app_props.Lookup("props")?.cast()?
+            app_props.Lookup("plugin")?.cast()?
         } else {
             let plugin: IVpnPlugIn = super::plugin::VpnPlugin.into();
             app_props.Insert("plugin", plugin.clone())?;
@@ -33,6 +34,8 @@ impl VpnBackgroundTask {
 
         // Call into VPN platform with the plugin object
         VpnChannel::ProcessEventAsync(plugin, task.TriggerDetails()?)?;
+
+        deferral.Complete()?;
 
         Ok(())
     }

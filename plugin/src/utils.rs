@@ -37,8 +37,7 @@ impl<T: RuntimeType + 'static> Vector<T> {
     }
 
     fn GetAt(&self, index: u32) -> Result<T> {
-        self
-            .0
+        self.0
             .get(index as usize)
             // SAFETY: `DefaultType` is a super trait of `RuntimeType`.
             .map(|el| unsafe { DefaultType::from_default(el) })
@@ -62,7 +61,7 @@ impl<T: RuntimeType + 'static> Vector<T> {
     fn GetMany(&self, start: u32, items: &mut [T::DefaultType]) -> Result<u32> {
         let sz = u32::try_from(self.0.len()).map_err(|_| Error::from(E_BOUNDS))?;
 
-        if start  >= sz {
+        if start >= sz {
             return Err(Error::from(E_BOUNDS));
         }
 

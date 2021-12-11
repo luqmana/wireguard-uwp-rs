@@ -3,16 +3,18 @@
 use std::sync::{Arc, RwLock};
 
 use boringtun::noise::{Tunn, TunnResult};
+use ipnetwork::IpNetwork;
 use windows::{
     self as Windows,
     core::*,
     Networking::Sockets::*,
     Networking::Vpn::*,
     Networking::*,
-    Win32::Foundation::{E_BOUNDS, E_UNEXPECTED},
+    Win32::Foundation::{E_BOUNDS, E_INVALIDARG, E_UNEXPECTED},
 };
 
 use crate::utils::{IBufferExt, Vector};
+use crate::{config, utils::debug_log};
 
 struct Inner {
     tunn: Option<Box<Tunn>>,
@@ -44,11 +46,77 @@ impl VpnPlugin {
 
         let config = channel.Configuration()?;
 
-        // TODO: read these from config
-        let static_private = Arc::new(env!("PRIVATE_KEY").parse().unwrap());
-        let peer_static_public = Arc::new(env!("REMOTE_PUBLIC_KEY").parse().unwrap());
-        let persistent_keepalive = Some(25);
-        let preshared_key = None;
+        // Grab custom config field from VPN profile and try to parse the config
+        // In theory this would totally be fine to deal with as INI to match
+        // most other wireguard config, but it's a bit of pain since a number of
+        // places assume this will be XML...
+        let wg_config = match config::WireGuard::from_str(&config.CustomField()?.to_string()) {
+            Ok(conf) => conf,
+            Err(err) => {
+                channel.SetErrorMessage(format!("failed to parse config: {}", err))?;
+                return Err(Error::from(E_INVALIDARG));
+            }
+        };
+
+        let static_private = Arc::new(wg_config.interface.private_key);
+        let peer_static_public = Arc::new(wg_config.peer.public_key);
+        let persistent_keepalive = wg_config.peer.persistent_keepalive;
+        let preshared_key = wg_config.peer.preshared_key;
+
+        // Grab interface addresses
+        let iface_addrs = wg_config.interface.address;
+        // Now massage em into the right form
+        let (ipv4, ipv6) = iface_addrs
+            .into_iter()
+            .partition::<Vec<_>, _>(IpNetwork::is_ipv4);
+        let ipv4_addrs = ipv4
+            .into_iter()
+            .map(|ip| HostName::CreateHostName(ip.ip().to_string()))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .map(Some)
+            .collect::<Vec<_>>();
+        let ipv4_addrs = if ipv4_addrs.is_empty() {
+            None
+        } else {
+            Some(Vector::new(ipv4_addrs).into())
+        };
+        let ipv6_addrs = ipv6
+            .into_iter()
+            .map(|ip| HostName::CreateHostName(ip.ip().to_string()))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .map(Some)
+            .collect::<Vec<_>>();
+        let ipv6_addrs = if ipv6_addrs.is_empty() {
+            None
+        } else {
+            Some(Vector::new(ipv6_addrs).into())
+        };
+
+        // Grab AllowedIPs and build routes from it
+        let allowed_ips = wg_config.peer.allowed_ips;
+        let routes = VpnRouteAssignment::new()?;
+        let mut ipv4 = vec![];
+        let mut ipv6 = vec![];
+        for ip in allowed_ips {
+            let route = VpnRoute::CreateVpnRoute(
+                HostName::CreateHostName(ip.network().to_string())?,
+                ip.prefix(),
+            )?;
+            if ip.is_ipv4() {
+                ipv4.push(Some(route));
+            } else {
+                ipv6.push(Some(route));
+            }
+        }
+
+        if !ipv4.is_empty() {
+            routes.SetIpv4InclusionRoutes(Vector::new(ipv4))?;
+        }
+        if !ipv6.is_empty() {
+            routes.SetIpv6InclusionRoutes(Vector::new(ipv6))?;
+        }
 
         // Create WG tunnel object
         let tunn = Tunn::new(
@@ -73,24 +141,18 @@ impl VpnPlugin {
 
         // Just use the first server listed to connect to remote endpoint
         let server = config.ServerHostNameList()?.GetAt(0)?;
+        let port = wg_config.peer.port;
 
-        // TODO: use config for port value
+        debug_log!("Server: {} Port: {}", server.ToString()?.to_string(), port);
+
         // We "block" here with the call to `.get()` but given this is a UDP socket
         // connect isn't actually something that will hang (DNS aside perhaps?).
-        sock.ConnectAsync(server, "51000")?.get()?;
-
-        // TODO: use config for local address choice
-        let ipv4 = Vector::new(vec![Some(HostName::CreateHostName("10.0.0.2")?)]);
-
-        // TODO: use config for routes
-        let routes = VpnRouteAssignment::new()?;
-        let route = VpnRoute::CreateVpnRoute(HostName::CreateHostName("10.0.0.0")?, 24)?;
-        routes.SetIpv4InclusionRoutes(Vector::new(vec![Some(route)]))?;
+        sock.ConnectAsync(server, port.to_string())?.get()?;
 
         // Kick off the VPN setup
         channel.Start(
-            ipv4,
-            None,   // TODO: No IPv6
+            ipv4_addrs,
+            ipv6_addrs,
             None,   // Interface ID portion of IPv6 address for VPN tunnel
             routes,
             None,   // TODO: DNS

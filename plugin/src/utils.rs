@@ -189,3 +189,24 @@ impl IBufferExt for VpnPacketBuffer {
         })
     }
 }
+
+macro_rules! debug_log {
+    ($fmt:tt) => {
+        unsafe {
+            use windows::Win32::Foundation::PSTR;
+            use windows::Win32::System::Diagnostics::Debug::OutputDebugStringA;
+            let mut msg = format!(concat!($fmt, "\n\0"));
+            OutputDebugStringA(PSTR(msg.as_mut_ptr()));
+        }
+    };
+    ($fmt:tt, $($arg:tt)*) => {
+        unsafe {
+            use windows::Win32::Foundation::PSTR;
+            use windows::Win32::System::Diagnostics::Debug::OutputDebugStringA;
+            let mut msg = format!(concat!($fmt, "\n\0"), $($arg)*);
+            OutputDebugStringA(PSTR(msg.as_mut_ptr()));
+        }
+    };
+}
+
+pub(crate) use debug_log;

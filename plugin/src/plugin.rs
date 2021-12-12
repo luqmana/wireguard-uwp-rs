@@ -13,8 +13,9 @@ use windows::{
     Win32::Foundation::{E_BOUNDS, E_INVALIDARG, E_UNEXPECTED},
 };
 
-use crate::utils::{IBufferExt, Vector};
-use crate::{config, utils::debug_log};
+use crate::config;
+use crate::logging::WireGuardUWPEvents;
+use crate::utils::{debug_log, IBufferExt, Vector};
 
 struct Inner {
     tunn: Option<Box<Tunn>>,
@@ -30,17 +31,30 @@ impl Inner {
 #[implement(Windows::Networking::Vpn::IVpnPlugIn)]
 pub struct VpnPlugin {
     inner: RwLock<Inner>,
+    etw_logger: WireGuardUWPEvents,
 }
 
 impl VpnPlugin {
     pub fn new() -> Self {
         Self {
             inner: RwLock::new(Inner::new()),
+            etw_logger: WireGuardUWPEvents::new(),
         }
     }
 
     /// Called by the platform so that we may connect and setup the VPN tunnel.
     fn Connect(&self, channel: &Option<VpnChannel>) -> Result<()> {
+        // Call out to separate method so that we can capture any errors
+        if let Err(err) = self.connect_inner(channel) {
+            self.etw_logger.connect_fail(None, err.code().0, &err.to_string());
+            Err(err)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Internal `Connect` implementation.
+    fn connect_inner(&self, channel: &Option<VpnChannel>) -> Result<()> {
         let channel = channel.as_ref().ok_or(Error::from(E_UNEXPECTED))?;
         let mut inner = self.inner.write().unwrap();
 
@@ -148,7 +162,7 @@ impl VpnPlugin {
 
         // We "block" here with the call to `.get()` but given this is a UDP socket
         // connect isn't actually something that will hang (DNS aside perhaps?).
-        sock.ConnectAsync(server, port.to_string())?.get()?;
+        sock.ConnectAsync(&server, port.to_string())?.get()?;
 
         // Kick off the VPN setup
         channel.Start(
@@ -164,11 +178,26 @@ impl VpnPlugin {
             None,   // No secondary socket used.
         )?;
 
+        // Log successful connection
+        self.etw_logger.connected(None, &server.ToString()?.to_string(), port);
+
         Ok(())
     }
 
     /// Called by the platform to indicate we should disconnect and cleanup the VPN tunnel.
     fn Disconnect(&self, channel: &Option<VpnChannel>) -> Result<()> {
+        // Call out to separate method so that we can capture any errors
+        if let Err(err) = self.disconnect_inner(channel) {
+            self.etw_logger.disconnect(None, err.code().0, &err.to_string());
+            Err(err)
+        } else {
+            self.etw_logger.disconnect(None, 0, "Operation successful.");
+            Ok(())
+        }
+    }
+
+    /// Internal `Disconnect` implementation.
+    fn disconnect_inner(&self, channel: &Option<VpnChannel>) -> Result<()> {
         let channel = channel.as_ref().ok_or(Error::from(E_UNEXPECTED))?;
 
         let mut inner = self.inner.write().unwrap();
@@ -207,10 +236,12 @@ impl VpnPlugin {
         let mut ret_buffers = vec![];
         let mut encap_err = None;
 
+        let packets_sz = packets.Size()?;
+        self.etw_logger.encapsulate_begin(None, packets_sz);
+
         // Process outgoing packets from VPN tunnel.
         // TODO: Not using the simpler `for packet in packets` because
         //       `packets.First()?` fails with E_NOINTERFACE for some reason.
-        let packets_sz = packets.Size()? as usize;
         for _ in 0..packets_sz {
             let packet = packets.RemoveAtBegin()?;
             let src = packet.get_buf()?;
@@ -266,6 +297,8 @@ impl VpnPlugin {
             packets.Append(packet)?;
         }
 
+        self.etw_logger.encapsulate_end(None, encapsulatedPackets.Size()?);
+
         // Just stick the unneeded buffers onto `packets` so the platform can clean them up
         for packet in ret_buffers {
             packets.Append(packet)?;
@@ -308,6 +341,8 @@ impl VpnPlugin {
             // We haven't initalized tunn yet, just return
             return Ok(());
         };
+
+        self.etw_logger.decapsulate_begin(None, buffer.Buffer()?.Length()?);
 
         // Allocate a buffer for the decapsulate packet
         let mut decapPacket = channel.GetVpnReceivePacketBuffer()?;
@@ -381,6 +416,8 @@ impl VpnPlugin {
                 decapsulatedPackets.Append(decapPacket)?;
             }
         }
+
+        self.etw_logger.decapsulate_end(None, decapsulatedPackets.Size()?, controlPackets.Size()?);
 
         Ok(())
     }

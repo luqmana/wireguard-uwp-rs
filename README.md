@@ -89,6 +89,16 @@ values.
 This has only been tested on Windows 10 21H1 (19043.1348) but should work on any updated
 Windows 10 or 11 release. It'll probably work on older versions but no guarantees.
 
+## Tracing
+
+The plugin emits a number of [ETW](https://docs.microsoft.com/en-us/windows/win32/etw/event-tracing-portal)
+under the Event Provider identified by a specific GUID (`c4522a55-401f-4b81-93f9-aa0d1db734c4`). The events
+are emitted with the help of the [rust_win_etw](https://github.com/microsoft/rust_win_etw) crate which
+provides a way to define & emit ETW events from your Rust code.
+
+To consume these events, there are a number of different tools which can be used. **rust_win_etw** provides
+a quick rundown on how to capture them: https://github.com/microsoft/rust_win_etw#how-to-capture-and-view-events
+
 ## License
 
 Licensed under either of

@@ -15,6 +15,8 @@ ipnetwork = "0.18"
 quick-xml = { version = "0.22", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = "1.11"
+win_etw_macros = "0.1"
+win_etw_provider = "0.1"
 
 [dependencies.windows]
 version = "0.28"

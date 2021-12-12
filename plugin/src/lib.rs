@@ -5,5 +5,6 @@
 
 mod background;
 mod config;
+mod logging;
 mod plugin;
 mod utils;

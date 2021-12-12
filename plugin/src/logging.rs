@@ -36,4 +36,9 @@ pub trait WireGuardUWPEvents {
     /// Indicates how many packets were decapsulated and how many frames sent to the remote.
     #[event(level = "verbose")]
     fn decapsulate_end(packets: u32, control_frames: u32);
+
+    /// KeepAlive packet event.
+    /// Indicates how many bytes destined for remote.
+    #[event(level = "info")]
+    fn keepalive(packet_sz: u32);
 }

@@ -427,9 +427,62 @@ impl VpnPlugin {
     /// If we decide we want to send any keepalive payload, we place it in `keepAlivePacket`.
     fn GetKeepAlivePayload(
         &self,
-        _channel: &Option<VpnChannel>,
-        _keepAlivePacket: &mut Option<VpnPacketBuffer>,
+        channel: &Option<VpnChannel>,
+        keepAlivePacket: &mut Option<VpnPacketBuffer>,
     ) -> Result<()> {
+        let channel = channel.as_ref().ok_or(Error::from(E_UNEXPECTED))?;
+
+        let inner = self.inner.read().unwrap();
+        let tunn = if let Some(tunn) = &inner.tunn {
+            &**tunn
+        } else {
+            // We haven't initalized tunn yet, just return
+            return Ok(());
+        };
+
+        *keepAlivePacket = None;
+
+        // Grab a buffer for the keepalive packet
+        let mut kaPacket = channel.GetVpnSendPacketBuffer()?;
+        let dst = kaPacket.get_buf_mut()?;
+
+        // Any packets we need to send out?
+        match tunn.update_timers(dst) {
+            // Nothing to do right now
+            TunnResult::Done => {
+                // TODO: Return unused `kaPacket` buffer
+            }
+
+            // Encountered an error, bail out
+            TunnResult::Err(err) => {
+                // TODO: Return unused `kaPacket` buffer
+                return Err(Error::new(
+                    // TODO: Better error than `E_UNEXPECTED`?
+                    E_UNEXPECTED,
+                    format!("update_timers error: {:?}", err).into(),
+                ));
+            }
+
+            // We got something to send to the remote
+            TunnResult::WriteToNetwork(packet) => {
+                // Make sure to update length on WinRT buffer
+                let new_len = u32::try_from(packet.len()).map_err(|_| Error::from(E_BOUNDS))?;
+                drop(packet);
+                kaPacket.Buffer()?.SetLength(new_len)?;
+
+                self.etw_logger.keepalive(None, new_len);
+
+                // Place the packet in the out param to send to remote
+                *keepAlivePacket = Some(kaPacket);
+            }
+
+            // Impossible cases for update_timers
+            TunnResult::WriteToTunnelV4(_, _) |
+            TunnResult::WriteToTunnelV6(_, _) => {
+                panic!("unexpected result from update_timers")
+            }
+        }
+
         Ok(())
     }
 }

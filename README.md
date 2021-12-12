@@ -42,7 +42,7 @@ To get your VPN tunnel up and running:
 
 1. Open Windows Settings and navigate to the VPN page:
 `Network & Internet > VPN`.
-2. Select `Add a VPN connection.
+2. Select `Add a VPN connection`.
 3. From the `VPN provider` dropdown select **WireGuard UWP VPN**.
 4. Give your new VPN profile a name under `Connection name`.
 5. Enter the remote endpoint hostname or IP address under `Server name or address`.
@@ -82,6 +82,16 @@ You should now be able to select the new profile and hit `Connect`.
 
 **NOTE:** Ideally, you could just specify `Port` colon separated with the hostname but the
 corresponding API for retrieving that value is statically typed as a HostName.
+
+**NOTE:** You should make sure to set a `PersistentKeepalive` value on the remote
+side for each **WireGuard UWP**-based client because the UWP VPN plugin model
+offers limited options for the plugin to perform periodic actions. Generally,
+the plugin will only be woken if there are packets that need to be encapsulated or
+if there are incoming buffers from the remote that need to be decapsulated. The
+platform does provide a `GetKeepAlivePayload` it will call on occasion but the
+interval in which it will be called cannot be controlled by the plugin author or
+the user but rather the platform itself. Hence it's important to make sure the
+server will keep the tunnel alive by sending the periodic keep alives in-band.
 
 **NOTE:** The main foreground app is planned to offer a simple UI for setting and modifying these
 values.

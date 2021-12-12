@@ -131,9 +131,10 @@ impl VpnPlugin {
         .map_err(|e| Error::new(E_UNEXPECTED, e.into()))?;
 
         // Stuff it into our inner state
-        // TODO: handle reconnects
-        let old_tunn = std::mem::replace(&mut inner.tunn, Some(tunn));
-        assert!(old_tunn.is_none());
+        // Just forget the previous tunn state and start over (if one exists at all)
+        if let Some(_) = std::mem::replace(&mut inner.tunn, Some(tunn)) {
+            debug_log!("Replacing leftover tunn state.");
+        }
 
         // Create socket and register with VPN platform
         let sock = DatagramSocket::new()?;

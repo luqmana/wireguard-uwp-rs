@@ -143,13 +143,36 @@ impl VpnPlugin {
             .into_iter()
             .map(Some)
             .collect::<Vec<_>>();
+        let search_domains = wg_config.interface.search_domains;
+
+        let namespace_count = search_domains.len() + !dns_servers.is_empty() as usize;
+        let mut namespaces = Vec::with_capacity(namespace_count);
+
+        // Add the search domains as suffix NRPT rules so that
+        // they get added to the virtual interface's
+        // Connection-Specific DNS Suffix Search List.
+        for mut search_domain in search_domains {
+            // Prefix with . to make it a suffix rule
+            search_domain.insert(0, '.');
+            let dns_servers = Vector::new(dns_servers.clone());
+            let namespace =
+                VpnNamespaceInfo::CreateVpnNamespaceInfo(
+                    search_domain,
+                    dns_servers,
+                    None
+                )?;
+            namespaces.push(Some(namespace));
+        }
+
         if !dns_servers.is_empty() {
             // We set the namespace name to '.' so it applies to everything instead of
             // a specific set of domains (see NRPT)
             let dns_servers = Vector::new(dns_servers);
             let namespace = VpnNamespaceInfo::CreateVpnNamespaceInfo(".", dns_servers, None)?;
-            namespace_assignment.SetNamespaceList(Vector::new(vec![Some(namespace)]))?;
+            namespaces.push(Some(namespace));
         }
+
+        namespace_assignment.SetNamespaceList(Vector::new(namespaces))?;
 
         // Create WG tunnel object
         let tunn = Tunn::new(

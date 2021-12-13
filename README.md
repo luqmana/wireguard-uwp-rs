@@ -60,6 +60,8 @@ $vpnConfig = @'
         <Address>10.0.0.2/32</Address>
         <DNS>1.1.1.1</DNS>
         <DNS>8.8.8.8</DNS>
+        <DNSSearch>vpn.example.com</DNSSearch>
+        <DNSSearch>foo.corp.example.com</DNSSearch>
     </Interface>
     <Peer>
         <PublicKey>...</PublicKey>
@@ -126,6 +128,13 @@ You will note another rule plumbed while the plugin is connected, for the specif
 domain used to connect to the remote endpoint. This is added automatically by the
 platform so that if the tunnel is interrupted and needs to be re-established, we
 don't end up in a situation wherein we can't resolve the remote's hostname.
+
+You can also specify one more optional search domains. These will be added to the
+VPN interface's **Connection-specific DNS Suffix Search List**. The first specified
+search domain will also be the primary Connection-specific DNS Suffix, as can be
+confirmed with `ipconfig /all` after connecting. You'll see an additional suffix-type
+NRPT rule for each such search domain configured, with the specific DNS servers set
+to whatever was configured.
 
 ## Tracing
 

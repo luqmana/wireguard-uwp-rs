@@ -41,6 +41,11 @@ pub struct InterfaceConfig {
     #[serde(default)]
     #[serde(rename = "DNS")]
     pub dns_servers: Vec<IpAddr>,
+
+    /// DNS Search Domains
+    #[serde(default)]
+    #[serde(rename = "DNSSearch")]
+    pub search_domains: Vec<String>,
 }
 
 /// Remote peer specific configuration

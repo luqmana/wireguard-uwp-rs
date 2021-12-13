@@ -1,5 +1,7 @@
 //! Config parsing.
 
+use std::net::IpAddr;
+
 use boringtun::crypto::x25519::{X25519PublicKey, X25519SecretKey};
 use ipnetwork::IpNetwork;
 use serde::Deserialize;
@@ -34,6 +36,11 @@ pub struct InterfaceConfig {
 
     /// Addresses to assign to local VPN interface
     pub address: Vec<IpNetwork>,
+
+    /// DNS servers
+    #[serde(default)]
+    #[serde(rename = "DNS")]
+    pub dns_servers: Vec<IpAddr>,
 }
 
 /// Remote peer specific configuration

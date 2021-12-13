@@ -58,6 +58,8 @@ $vpnConfig = @'
     <Interface>
         <PrivateKey>...</PrivateKey>
         <Address>10.0.0.2/32</Address>
+        <DNS>1.1.1.1</DNS>
+        <DNS>8.8.8.8</DNS>
     </Interface>
     <Peer>
         <PublicKey>...</PublicKey>
@@ -98,6 +100,32 @@ values.
 
 This has only been tested on Windows 10 21H1 (19043.1348) but should work on any updated
 Windows 10 or 11 release. It'll probably work on older versions but no guarantees.
+
+### DNS
+
+DNS servers are plumbed via [Name Resolution Policy Table](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/dn593632(v=ws.11)) (NRPT) Rules.
+You can print the current set of rules applied while a VPN profile backed by the plugin
+is connected via either:
+
+CMD:
+```cmd
+netsh namespace show effectivepolicy
+```
+
+PowerShell:
+```powershell
+Get-DnsClientNrptPolicy -Effective
+```
+
+If any number of DNS servers are specified in the config, the plugin will plumb one
+NRPT rule with the namespace set to `.`; this means the rule will apply to all
+domains. While NRPT rules do support matching based on domain suffixes/prefixes
+to apply domain-specific DNS servers, we just use a single wildcard rule.
+
+You will note another rule plumbed while the plugin is connected, for the specific
+domain used to connect to the remote endpoint. This is added automatically by the
+platform so that if the tunnel is interrupted and needs to be re-established, we
+don't end up in a situation wherein we can't resolve the remote's hostname.
 
 ## Tracing
 

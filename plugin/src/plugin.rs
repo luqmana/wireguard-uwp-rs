@@ -132,6 +132,25 @@ impl VpnPlugin {
             routes.SetIpv6InclusionRoutes(Vector::new(ipv6))?;
         }
 
+        // Setup DNS
+        let namespace_assignment = VpnNamespaceAssignment::new()?;
+        let dns_servers = wg_config
+            .interface
+            .dns_servers
+            .into_iter()
+            .map(|server| HostName::CreateHostName(server.to_string()))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .map(Some)
+            .collect::<Vec<_>>();
+        if !dns_servers.is_empty() {
+            // We set the namespace name to '.' so it applies to everything instead of
+            // a specific set of domains (see NRPT)
+            let dns_servers = Vector::new(dns_servers);
+            let namespace = VpnNamespaceInfo::CreateVpnNamespaceInfo(".", dns_servers, None)?;
+            namespace_assignment.SetNamespaceList(Vector::new(vec![Some(namespace)]))?;
+        }
+
         // Create WG tunnel object
         let tunn = Tunn::new(
             static_private,
@@ -170,7 +189,7 @@ impl VpnPlugin {
             ipv6_addrs,
             None,   // Interface ID portion of IPv6 address for VPN tunnel
             routes,
-            None,   // TODO: DNS
+            namespace_assignment,
             1500,   // MTU size of VPN tunnel interface
             1600,   // Max frame size of incoming buffers from remote endpoint
             false,  // Disable low cost network monitoring

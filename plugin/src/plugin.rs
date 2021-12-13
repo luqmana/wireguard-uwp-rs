@@ -1,6 +1,7 @@
 //! Our implementation of `IVpnPlugIn` which is the bulk of the UWP VPN plugin.
 
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use boringtun::noise::{Tunn, TunnResult};
 use ipnetwork::IpNetwork;
@@ -294,6 +295,48 @@ impl VpnPlugin {
 
         let mut ret_buffers = vec![];
         let mut encap_err = None;
+
+        // Usually this would be called in the background by some periodic timer
+        // but a UWP VPN plugin will get suspended if there's no traffic and that
+        // includes any background threads or such we could create.
+        // So we may find ourselves with a stale session and need to do a new
+        // handshake. Thus, we just call this opportunistically here before
+        // trying to encapsulate.
+        if tunn.time_since_last_handshake() >= Some(Duration::from_millis(250)) {
+            const HANDSHAKE_INIT_SZ: usize = 148;
+            let mut handshake_buf = [0u8; HANDSHAKE_INIT_SZ];
+            match tunn.update_timers(&mut handshake_buf) {
+                // Session still valid, nothing more to do.
+                TunnResult::Done => (),
+
+                // Encountered an error, bail out
+                TunnResult::Err(err) => {
+                    return Err(Error::new(
+                        E_UNEXPECTED,
+                        format!("update_timers error: {:?}", err).into(),
+                    ));
+                },
+
+                // Looks like we need to get things updated
+                TunnResult::WriteToNetwork(packet) => {
+                    // Request a new buffer
+                    let mut handshake_buffer = channel.GetVpnSendPacketBuffer()?;
+
+                    // Copy data over and update length on WinRT buffer
+                    handshake_buffer.get_buf_mut()?[..packet.len()].copy_from_slice(packet);
+                    let new_len = u32::try_from(packet.len()).map_err(|_| Error::from(E_BOUNDS))?;
+                    handshake_buffer.Buffer()?.SetLength(new_len)?;
+
+                    // Now queue it up to be sent
+                    encapsulatedPackets.Append(handshake_buffer)?;
+                },
+
+                // Impossible cases for update_timers
+                TunnResult::WriteToTunnelV4(_, _) | TunnResult::WriteToTunnelV6(_, _) => {
+                    panic!("unexpected result from update_timers");
+                }
+            }
+        }
 
         let packets_sz = packets.Size()?;
         self.etw_logger.encapsulate_begin(None, packets_sz);

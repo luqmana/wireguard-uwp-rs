@@ -13,7 +13,7 @@ use windows::{
     Win32::Foundation::{E_BOUNDS, E_INVALIDARG, E_UNEXPECTED},
 };
 
-use crate::config;
+use crate::config::WireGuardConfig;
 use crate::logging::WireGuardUWPEvents;
 use crate::utils::{debug_log, IBufferExt, Vector};
 
@@ -64,7 +64,7 @@ impl VpnPlugin {
         // In theory this would totally be fine to deal with as INI to match
         // most other wireguard config, but it's a bit of pain since a number of
         // places assume this will be XML...
-        let wg_config = match config::WireGuard::from_str(&config.CustomField()?.to_string()) {
+        let wg_config = match WireGuardConfig::from_str(&config.CustomField()?.to_string()) {
             Ok(conf) => conf,
             Err(err) => {
                 channel.SetErrorMessage(format!("failed to parse config: {}", err))?;

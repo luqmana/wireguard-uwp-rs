@@ -47,7 +47,8 @@ impl VpnPlugin {
     fn Connect(&self, channel: &Option<VpnChannel>) -> Result<()> {
         // Call out to separate method so that we can capture any errors
         if let Err(err) = self.connect_inner(channel) {
-            self.etw_logger.connect_fail(None, err.code().0, &err.to_string());
+            self.etw_logger
+                .connect_fail(None, err.code().0, &err.to_string());
             Err(err)
         } else {
             Ok(())
@@ -174,11 +175,7 @@ impl VpnPlugin {
             search_domain.insert(0, '.');
             let dns_servers = Vector::new(dns_servers.clone());
             let namespace =
-                VpnNamespaceInfo::CreateVpnNamespaceInfo(
-                    search_domain,
-                    dns_servers,
-                    None
-                )?;
+                VpnNamespaceInfo::CreateVpnNamespaceInfo(search_domain, dns_servers, None)?;
             namespaces.push(Some(namespace));
         }
 
@@ -228,18 +225,19 @@ impl VpnPlugin {
         channel.Start(
             ipv4_addrs,
             ipv6_addrs,
-            None,   // Interface ID portion of IPv6 address for VPN tunnel
+            None, // Interface ID portion of IPv6 address for VPN tunnel
             routes,
             namespace_assignment,
-            1500,   // MTU size of VPN tunnel interface
-            1600,   // Max frame size of incoming buffers from remote endpoint
-            false,  // Disable low cost network monitoring
-            sock,   // Pass in the socket to the remote endpoint
-            None,   // No secondary socket used.
+            1500,  // MTU size of VPN tunnel interface
+            1600,  // Max frame size of incoming buffers from remote endpoint
+            false, // Disable low cost network monitoring
+            sock,  // Pass in the socket to the remote endpoint
+            None,  // No secondary socket used.
         )?;
 
         // Log successful connection
-        self.etw_logger.connected(None, &server.ToString()?.to_string(), port);
+        self.etw_logger
+            .connected(None, &server.ToString()?.to_string(), port);
 
         Ok(())
     }
@@ -248,7 +246,8 @@ impl VpnPlugin {
     fn Disconnect(&self, channel: &Option<VpnChannel>) -> Result<()> {
         // Call out to separate method so that we can capture any errors
         if let Err(err) = self.disconnect_inner(channel) {
-            self.etw_logger.disconnect(None, err.code().0, &err.to_string());
+            self.etw_logger
+                .disconnect(None, err.code().0, &err.to_string());
             Err(err)
         } else {
             self.etw_logger.disconnect(None, 0, "Operation successful.");
@@ -315,7 +314,7 @@ impl VpnPlugin {
                         E_UNEXPECTED,
                         format!("update_timers error: {:?}", err).into(),
                     ));
-                },
+                }
 
                 // Looks like we need to get things updated
                 TunnResult::WriteToNetwork(packet) => {
@@ -329,7 +328,7 @@ impl VpnPlugin {
 
                     // Now queue it up to be sent
                     encapsulatedPackets.Append(handshake_buffer)?;
-                },
+                }
 
                 // Impossible cases for update_timers
                 TunnResult::WriteToTunnelV4(_, _) | TunnResult::WriteToTunnelV6(_, _) => {
@@ -399,7 +398,8 @@ impl VpnPlugin {
             packets.Append(packet)?;
         }
 
-        self.etw_logger.encapsulate_end(None, encapsulatedPackets.Size()?);
+        self.etw_logger
+            .encapsulate_end(None, encapsulatedPackets.Size()?);
 
         // Just stick the unneeded buffers onto `packets` so the platform can clean them up
         for packet in ret_buffers {
@@ -444,7 +444,8 @@ impl VpnPlugin {
             return Ok(());
         };
 
-        self.etw_logger.decapsulate_begin(None, buffer.Buffer()?.Length()?);
+        self.etw_logger
+            .decapsulate_begin(None, buffer.Buffer()?.Length()?);
 
         // Allocate a buffer for the decapsulate packet
         let mut decapPacket = channel.GetVpnReceivePacketBuffer()?;
@@ -519,7 +520,8 @@ impl VpnPlugin {
             }
         }
 
-        self.etw_logger.decapsulate_end(None, decapsulatedPackets.Size()?, controlPackets.Size()?);
+        self.etw_logger
+            .decapsulate_end(None, decapsulatedPackets.Size()?, controlPackets.Size()?);
 
         Ok(())
     }
@@ -579,8 +581,7 @@ impl VpnPlugin {
             }
 
             // Impossible cases for update_timers
-            TunnResult::WriteToTunnelV4(_, _) |
-            TunnResult::WriteToTunnelV6(_, _) => {
+            TunnResult::WriteToTunnelV4(_, _) | TunnResult::WriteToTunnelV6(_, _) => {
                 panic!("unexpected result from update_timers")
             }
         }

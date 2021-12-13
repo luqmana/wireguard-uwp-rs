@@ -108,28 +108,45 @@ impl VpnPlugin {
             Some(Vector::new(ipv6_addrs).into())
         };
 
-        // Grab AllowedIPs and build routes from it
-        let allowed_ips = wg_config.peer.allowed_ips;
-        let routes = VpnRouteAssignment::new()?;
-        let mut ipv4 = vec![];
-        let mut ipv6 = vec![];
-        for ip in allowed_ips {
-            let route = VpnRoute::CreateVpnRoute(
-                HostName::CreateHostName(ip.network().to_string())?,
-                ip.prefix(),
-            )?;
-            if ip.is_ipv4() {
-                ipv4.push(Some(route));
-            } else {
-                ipv6.push(Some(route));
+        let build_routes = |routes: Vec<IpNetwork>| -> Result<_> {
+            let mut ipv4 = vec![];
+            let mut ipv6 = vec![];
+
+            for ip in routes {
+                let route = VpnRoute::CreateVpnRoute(
+                    HostName::CreateHostName(ip.network().to_string())?,
+                    ip.prefix(),
+                )?;
+                if ip.is_ipv4() {
+                    ipv4.push(Some(route));
+                } else {
+                    ipv6.push(Some(route));
+                }
             }
+
+            Ok((ipv4, ipv6))
+        };
+
+        let routes = VpnRouteAssignment::new()?;
+
+        // Grab AllowedIPs and build routes from it
+        let (allowed_ipv4, allowed_ipv6) = build_routes(wg_config.peer.allowed_ips)?;
+
+        if !allowed_ipv4.is_empty() {
+            routes.SetIpv4InclusionRoutes(Vector::new(allowed_ipv4))?;
+        }
+        if !allowed_ipv6.is_empty() {
+            routes.SetIpv6InclusionRoutes(Vector::new(allowed_ipv6))?;
         }
 
-        if !ipv4.is_empty() {
-            routes.SetIpv4InclusionRoutes(Vector::new(ipv4))?;
+        // Grab ExcludedIPs to determine exclusion routes
+        let (excluded_ipv4, excluded_ipv6) = build_routes(wg_config.peer.excluded_ips)?;
+
+        if !excluded_ipv4.is_empty() {
+            routes.SetIpv4ExclusionRoutes(Vector::new(excluded_ipv4))?;
         }
-        if !ipv6.is_empty() {
-            routes.SetIpv6InclusionRoutes(Vector::new(ipv6))?;
+        if !excluded_ipv6.is_empty() {
+            routes.SetIpv6ExclusionRoutes(Vector::new(excluded_ipv6))?;
         }
 
         // Setup DNS

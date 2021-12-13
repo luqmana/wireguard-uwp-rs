@@ -64,6 +64,11 @@ pub struct PeerConfig {
     #[serde(rename = "AllowedIPs")]
     pub allowed_ips: Vec<IpNetwork>,
 
+    /// The list of addresses that won't get routed to the remote endpoint
+    #[serde(default)]
+    #[serde(rename = "ExcludedIPs")]
+    pub excluded_ips: Vec<IpNetwork>,
+
     /// The interval at which to send KeepAlive packets.
     pub persistent_keepalive: Option<u16>,
 

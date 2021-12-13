@@ -58,8 +58,8 @@ $vpnConfig = @'
     <Interface>
         <PrivateKey>...</PrivateKey>
         <Address>10.0.0.2/32</Address>
+        <Address>2001:db8::2/64</Address>
         <DNS>1.1.1.1</DNS>
-        <DNS>8.8.8.8</DNS>
         <DNSSearch>vpn.example.com</DNSSearch>
         <DNSSearch>foo.corp.example.com</DNSSearch>
     </Interface>
@@ -69,6 +69,7 @@ $vpnConfig = @'
         <AllowedIPs>10.0.0.0/24</AllowedIPs>
         <AllowedIPs>10.10.0.0/24</AllowedIPs>
         <AllowedIPs>10.20.0.0/24</AllowedIPs>
+        <AllowedIPs>2001:db8::/64</AllowedIPs>
         <PersistentKeepalive>25</PersistentKeepalive>
     </Peer>
 </WireGuard>
@@ -103,6 +104,10 @@ values.
 This has only been tested on Windows 10 21H1 (19043.1348) but should work on any updated
 Windows 10 or 11 release. It'll probably work on older versions but no guarantees.
 
+### Address
+
+You must specify one or more IPv4 and/or IPv6 addresses to assign to the virtual interface.
+
 ### DNS
 
 DNS servers are plumbed via [Name Resolution Policy Table](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/dn593632(v=ws.11)) (NRPT) Rules.
@@ -135,6 +140,65 @@ search domain will also be the primary Connection-specific DNS Suffix, as can be
 confirmed with `ipconfig /all` after connecting. You'll see an additional suffix-type
 NRPT rule for each such search domain configured, with the specific DNS servers set
 to whatever was configured.
+
+### Routing
+
+If you'd like all traffic to flow over the VPN interface while connected, you can
+just add a catch-all route (`0.0.0.0/0` or `::/0` as appropriate):
+
+```powershell
+$vpnConfig = @'
+<WireGuard>
+    <Interface>
+        <PrivateKey>...</PrivateKey>
+        <Address>10.0.0.2/32</Address>
+        <DNS>1.1.1.1</DNS>
+    </Interface>
+    <Peer>
+        <PublicKey>...</PublicKey>
+        <Port>51000</Port>
+        <AllowedIPs>0.0.0.0/0</AllowedIPs>
+        <PersistentKeepalive>25</PersistentKeepalive>
+    </Peer>
+</WireGuard>
+'@
+
+Set-VpnConnection -Name ProfileNameHere -CustomConfiguration $vpnConfig
+```
+
+If you'd like to exclude certain routes from going over the VPN interface, you
+can specify one or more `ExcludedIPs` elements:
+
+```powershell
+$vpnConfig = @'
+<WireGuard>
+    <Interface>
+        <PrivateKey>...</PrivateKey>
+        <Address>10.0.0.2/32</Address>
+        <DNS>1.1.1.1</DNS>
+    </Interface>
+    <Peer>
+        <PublicKey>...</PublicKey>
+        <Port>51000</Port>
+        <AllowedIPs>0.0.0.0/0</AllowedIPs>
+        <ExcludedIPs>192.168.1.0/24</ExcludedIPs>
+        <PersistentKeepalive>25</PersistentKeepalive>
+    </Peer>
+</WireGuard>
+'@
+
+Set-VpnConnection -Name ProfileNameHere -CustomConfiguration $vpnConfig
+```
+
+This usually only makes sense if you have a catch-all route to carve out some
+exceptions. Also note that there will usually already be a specific route
+entry for your local subnet so no need to explicitly exclude it.
+
+To print the routing table in `cmd.exe` run:
+
+```cmd
+route print
+```
 
 ## Tracing
 
